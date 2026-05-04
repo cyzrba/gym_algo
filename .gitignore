@@ -1,0 +1,24 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv
+.env
+
+# Editor / OS files
+.DS_Store
+Thumbs.db
+
+# Runtime data
+.mplconfig/
+img/
+result/
+
+# Model weights
+yolo26n-pose.pt
+yolo26n-seg.pt
