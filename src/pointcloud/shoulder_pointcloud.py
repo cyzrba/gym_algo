@@ -15,7 +15,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from ultralytics import YOLO
 
-from arm_pointcloud import (
+from .arm_pointcloud import (
     DEFAULT_POSE_MODEL_PATH,
     detect_pose_joints,
     joint_to_uv,
@@ -25,7 +25,7 @@ from arm_pointcloud import (
     pick_joint,
     sample_joint_xyz_from_point_cloud,
 )
-from pointcloud import load_point_cloud
+from .pointcloud import load_point_cloud
 
 
 DEFAULT_OUTPUT_DIR = Path("result") / "shoulder_pointcloud"

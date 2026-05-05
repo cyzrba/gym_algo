@@ -15,7 +15,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from ultralytics import YOLO
 
-from pointcloud import load_point_cloud
+from .pointcloud import load_point_cloud
 
 
 COCO_KEYPOINT_NAMES = [

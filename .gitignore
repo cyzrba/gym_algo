@@ -1,24 +1,35 @@
-# Python-generated files
+# Python 生成文件
 __pycache__/
 *.py[oc]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
 build/
 dist/
 wheels/
 *.egg-info
 
-# Virtual environments
+# 虚拟环境
 .venv
 .env
 
-# Editor / OS files
+# 编辑器和系统文件
 .DS_Store
 Thumbs.db
+.idea/
+.vscode/
+*.code-workspace
 
-# Runtime data
+# 运行时数据
 .mplconfig/
 img/
 result/
+*.log
+*.zip
 
-# Model weights
+# 模型权重
 yolo26n-pose.pt
 yolo26n-seg.pt

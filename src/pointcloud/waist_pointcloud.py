@@ -9,7 +9,7 @@ import numpy as np
 from scipy.spatial import cKDTree
 from ultralytics import YOLO
 
-from arm_pointcloud import (
+from .arm_pointcloud import (
     DEFAULT_POSE_MODEL_PATH,
     compute_polyline_length,
     detect_pose_joints,
@@ -20,7 +20,7 @@ from arm_pointcloud import (
     pick_joint,
     sample_joint_xyz_from_point_cloud,
 )
-from pointcloud import load_point_cloud
+from .pointcloud import load_point_cloud
 
 
 DEFAULT_OUTPUT_DIR = Path("result") / "waist_pointcloud"
