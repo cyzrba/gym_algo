@@ -1,32 +1,30 @@
 from __future__ import annotations
 
+from contextlib import asynccontextmanager
+from typing import AsyncIterator
+
 from fastapi import FastAPI
 
-from app.api.routes.jobs import router as jobs_router
-from app.api.routes.measurements import router as measurements_router
-from app.core.paths import ensure_runtime_dirs
+from src.app.api.measurement import router as measurements_router
+from src.app.api.task import router as task_router
+from src.app.utils.database import init_db
 
 
-def create_app() -> FastAPI:
-    app = FastAPI(
-        title="Gym Body Measurement Backend",
-        description="FastAPI wrapper for point-cloud body measurement scripts.",
-        version="0.1.0",
-    )
-
-    @app.on_event("startup")
-    async def startup() -> None:
-        ensure_runtime_dirs()
-
-    @app.get("/health", tags=["health"])
-    async def health() -> dict[str, object]:
-        from app.api.routes.health import get_health_payload
-
-        return get_health_payload()
-
-    app.include_router(measurements_router)
-    app.include_router(jobs_router)
-    return app
+@asynccontextmanager
+async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+    await init_db()
+    yield
 
 
-app = create_app()
+app = FastAPI(lifespan=lifespan)
+app.include_router(measurements_router)
+app.include_router(task_router)
+
+
+@app.get("/health", tags=["health"])
+async def health() -> dict[str, object]:
+    return {"status": "ok"}
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)

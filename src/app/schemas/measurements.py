@@ -1,18 +1,26 @@
-from __future__ import annotations
-
-from dataclasses import dataclass
+from sqlmodel import SQLModel
 
 
-@dataclass(frozen=True)
-class MeasurementParams:
-    arm_side: str
-    leg_side: str
-    rgb_width: int
-    rgb_height: int
-    rgb_format: str
-    depth_width: int
-    depth_height: int
-    depth_dtype: str
-    depth_endian: str
-    depth_scale: float
-    depth_window: int
+class ArmMeasurement(SQLModel):
+    left_arc: float | None = None
+    right_arc: float | None = None
+
+
+class LegMeasurement(SQLModel):
+    left_arc: float | None = None
+    right_arc: float | None = None
+
+
+class WaistMeasurement(SQLModel):
+    waist_arc: float | None = None
+
+
+class ShoulderMeasurement(SQLModel):
+    shoulder_width: float | None = None
+
+
+class MeasurementResult(SQLModel):
+    arm: ArmMeasurement | None = None
+    leg: LegMeasurement | None = None
+    waist: WaistMeasurement | None = None
+    shoulder: ShoulderMeasurement | None = None
