@@ -1,205 +1,188 @@
 # Gym Backend
 
-这是一个基于 FastAPI 的智能健身房人体围度测量后端。
+基于 FastAPI 的智能健身房人体围度测量后端。
 
-后端接收 RGB、Depth 和点云 PLY 数据，创建测量任务，调用四个测量流程
-（`arm`、`shoulder`、`leg`、`waist`），并把任务状态、测量结果和可视化产物保存到本地运行目录。
+接收 RGB、Depth 和点云 PLY 数据，通过 YOLO 姿态检测和点云分析，测量臂围、腿围、腰围和肩宽。
 
 ## 技术栈
 
 - Python 3.11+
-- FastAPI
-- Uvicorn
-- uv
+- FastAPI + Uvicorn
+- SQLModel + SQLAlchemy + aiosqlite
 - NumPy / OpenCV / SciPy / Matplotlib
 - Ultralytics YOLO
+- uv
 
-## 安装依赖
+## 安装
 
 ```bash
 uv sync
 ```
 
-## 启动服务
-
-推荐启动命令：
+## 启动
 
 ```bash
-uv run uvicorn app.main:app --app-dir src --reload --host 0.0.0.0 --port 8000
+uv run uvicorn src.app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-兼容启动命令：
+访问 API 文档：
 
-```bash
-uv run uvicorn main:app --reload --host 0.0.0.0 --port 8000
 ```
-
-浏览器访问：
-
-```text
 http://127.0.0.1:8000/docs
 ```
 
 ## 项目结构
 
 ```text
-gym_backend/
-|-- src/
-|   |-- app/
-|   |   |-- main.py
-|   |   |-- api/
-|   |   |   `-- routes/
-|   |   |       |-- health.py
-|   |   |       |-- jobs.py
-|   |   |       `-- measurements.py
-|   |   |-- core/
-|   |   |   |-- constants.py
-|   |   |   |-- paths.py
-|   |   |   `-- validation.py
-|   |   |-- schemas/
-|   |   |   |-- common.py
-|   |   |   `-- measurements.py
-|   |   |-- services/
-|   |   |   |-- artifact_service.py
-|   |   |   |-- input_service.py
-|   |   |   |-- job_service.py
-|   |   |   `-- measurement_runner.py
-|   |   `-- utils/
-|   |       `-- file_utils.py
-|   `-- pointcloud/
-|       |-- pointcloud.py
-|       |-- arm_pointcloud.py
-|       |-- shoulder_pointcloud.py
-|       |-- leg_pointcloud.py
-|       `-- waist_pointcloud.py
-|-- img/
-|-- result/
-|-- main.py
-|-- pyproject.toml
-|-- uv.lock
-|-- README.md
-|-- .gitignore
-|-- .python-version
-|-- yolo26n-pose.pt
-`-- yolo26n-seg.pt
+gym_algo  /
+├── src/
+│   ├── app/                        # FastAPI 应用层
+│   │   ├── main.py                 # 应用入口与路由注册
+│   │   ├── config.py               # 全局配置（路径、数据库连接）
+│   │   ├── api/                    # 接口层
+│   │   │   ├── measurement.py      # 测量任务接口（上传并执行测量）
+│   │   │   └── task.py             # 任务 CRUD 接口
+│   │   ├── model/                  # 数据库模型
+│   │   │   └── task.py             # Task 表定义
+│   │   ├── schemas/                # Pydantic / SQLModel 数据结构
+│   │   │   ├── common.py           # 通用 schema
+│   │   │   ├── measurements.py     # 测量结果 schema
+│   │   │   └── task.py             # 任务状态与响应 schema
+│   │   ├── services/               # 业务逻辑层
+│   │   │   ├── measurement.py      # 测量处理服务
+│   │   │   └── task.py             # 任务状态管理服务
+│   │   └── utils/                  # 工具模块
+│   │       ├── constants.py        # COCO 关键点名称等常量
+│   │       ├── database.py         # 数据库引擎与会话管理
+│   │       └── file_utils.py       # 文件操作工具
+│   └── algo/                       # 测量算法层
+│       ├── base.py                 # 算法基类（数据加载、姿态检测、点云处理）
+│       ├── body.py                 # 全身测量调度器
+│       ├── arm.py                  # 臂围测量算法
+│       ├── leg.py                  # 腿围测量算法
+│       ├── waist.py                # 腰围测量算法
+│       ├── shoulder.py             # 肩宽测量算法
+│       ├── config.py               # 算法参数配置
+│       └── model/                  # 模型文件
+│           ├── model.py            # YOLO 模型加载
+│           └── yolo26n-pose.pt     # YOLO 姿态检测权重
+├── test/                           # 测试
+│   ├── test_algo.py                # 算法测试
+│   ├── test_task.py                # 任务接口测试
+│   └── seed_tasks.py               # 测试数据初始化
+├── data/                           # 运行时数据（SQLite 数据库）
+├── pyproject.toml
+├── uv.lock
+├── .python-version
+├── .gitignore
+└── README.md
 ```
 
 ## 目录说明
 
-- `src/app/`
-  - FastAPI 应用代码。
-  - 包含路由、业务服务、参数校验、路径配置和应用组装。
+- **`src/app/`** — FastAPI 应用层，负责 HTTP 接口、任务管理和数据持久化
+- **`src/app/api/`** — 路由接口，`task.py` 管理任务生命周期，`measurement.py` 处理测量请求
+- **`src/app/model/`** — SQLModel 数据库表定义
+- **`src/app/schemas/`** — 请求/响应数据结构定义
+- **`src/app/services/`** — 业务逻辑，协调接口层与算法层
+- **`src/algo/`** — 测量算法核心，基于 YOLO 姿态检测 + 点云切片分析
+- **`src/algo/model/`** — YOLO 模型权重文件
+- **`test/`** — 单元测试与集成测试
+- **`data/`** — SQLite 数据库文件存储目录
 
-- `src/app/api/routes/`
-  - 接口层。
-  - `measurements.py` 负责上传和创建测量任务。
-  - `jobs.py` 负责查询任务、删除任务和下载产物。
-  - `health.py` 负责健康检查返回内容。
+## API 接口
 
-- `src/app/core/`
-  - 核心配置层。
-  - 管理常量、路径和基础参数校验。
+### 任务管理
 
-- `src/app/services/`
-  - 业务逻辑层。
-  - 负责输入保存、zip 解压、任务状态读写、测量脚本调度和产物解析。
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| `POST` | `/api/v1/tasks` | 创建测量任务 |
+| `GET` | `/api/v1/tasks/{task_id}` | 查询任务状态与结果 |
+| `PUT` | `/api/v1/tasks/{task_id}` | 更新任务测量结果 |
+| `PATCH` | `/api/v1/tasks/{task_id}/status` | 更新任务状态 |
+| `DELETE` | `/api/v1/tasks/{task_id}` | 删除任务 |
 
-- `src/app/schemas/`
-  - 数据结构定义。
-  - 当前主要使用 dataclass 保存内部参数结构。
+### 测量执行
 
-- `src/pointcloud/`
-  - 点云和人体围度测量脚本。
-  - 后端会以 Python module 的方式调用这些脚本。
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| `POST` | `/api/v1/measurements` | 上传数据并执行测量 |
 
-- `img/`
-  - 运行时输入目录。
-  - 上传文件会保存到 `img/{job_id}/`。
+### 健康检查
 
-- `result/`
-  - 运行时输出目录。
-  - 每个任务会写入 `result/{job_id}/`。
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| `GET` | `/health` | 服务健康检查 |
 
-- `main.py`
-  - 根目录兼容入口。
-  - 内部只负责导入 `src/app/main.py` 里的 FastAPI app。
-
-## 主要接口
-
-- `GET /health`
-- `POST /api/v1/measurements`
-- `POST /api/v1/measurements/archive`
-- `POST /api/v1/measurements/folder`
-- `GET /api/v1/jobs/{job_id}`
-- `GET /api/v1/jobs/{job_id}/artifacts/{measurement}/{filename}`
-- `DELETE /api/v1/jobs/{job_id}`
-
-## 任务流程
+## 任务状态流转
 
 ```text
-上传输入数据
-    ->
-创建 job
-    ->
-写入 result/{job_id}/job.json
-    ->
-依次运行 arm / shoulder / leg / waist
-    ->
-保存 JSON 和图片产物
-    ->
-通过 GET /api/v1/jobs/{job_id} 轮询结果
+pending → processing → success
+                    → fail
+                    → cancel
+pending → cancel
 ```
 
-## zip 上传格式
+## 测量流程
 
-推荐使用 `POST /api/v1/measurements/archive` 上传 zip。
+```text
+创建任务 (POST /api/v1/tasks)
+    →
+上传数据并执行测量 (POST /api/v1/measurements)
+    →
+解压 zip，加载前后视角 RGB/Depth/PLY
+    →
+YOLO 姿态检测 → 关键点提取
+    →
+点云切片分析 → 臂围/腿围/腰围/肩宽
+    →
+结果写入 SQLite
+    →
+轮询任务状态 (GET /api/v1/tasks/{task_id})
+```
 
-zip 文件建议结构：
+## 上传数据格式
+
+推荐使用 zip 上传，结构如下：
 
 ```text
 capture_bundle.zip
-|-- front/
-|   |-- rgb.raw
-|   |-- depth.raw
-|   `-- pointcloud.ply
-`-- back/
-    |-- rgb.raw
-    |-- depth.raw
-    `-- pointcloud.ply
+├── front/
+│   ├── rgb.raw
+│   ├── depth.raw
+│   └── pointcloud.ply
+└── back/
+    ├── rgb.raw
+    ├── depth.raw
+    └── pointcloud.ply
 ```
 
-实际文件名可以不同，但路径中需要能识别 `front` / `back`，并且 raw 文件名需要能区分 RGB 和 Depth。
-
-例如：
-
-```text
-front/Color_1777431096104_1.raw
-front/Depth_1777431096047_0.raw
-front/PointCloud_Astra Pro_20260429_105134.ply
-back/Color_1777431146855_1.raw
-back/Depth_1777431146727_0.raw
-back/PointCloud_Astra Pro_20260429_105230.ply
-```
+文件名可自定义，但路径中需包含 `front` / `back` 以区分视角，文件名需能区分 RGB 和 Depth。
 
 ## curl 示例
 
-上传 zip 并执行全部测量：
+创建任务：
 
 ```bash
-curl -X POST "http://127.0.0.1:8000/api/v1/measurements/archive" \
-  -F "archive=@capture_bundle.zip" \
-  -F "measurements=all"
+curl -X POST "http://127.0.0.1:8000/api/v1/tasks"
+```
+
+上传数据并执行测量：
+
+```bash
+curl -X POST "http://127.0.0.1:8000/api/v1/measurements" \
+  -F "task_id={task_id}" \
+  -F "archive=@capture_bundle.zip"
 ```
 
 查询任务：
 
 ```bash
-curl "http://127.0.0.1:8000/api/v1/jobs/{job_id}"
+curl "http://127.0.0.1:8000/api/v1/tasks/{task_id}"
 ```
 
-## 注意事项
+## 测试
 
-- `img/`、`result/`、`.venv/`、`.mplconfig/` 和模型权重文件默认不提交到 git。
-- 运行测量任务前，需要确保本地存在 `yolo26n-pose.pt`。
-- `yolo26n-seg.pt` 当前作为后续分割模型扩展预留。
-- 当前任务状态保存在本地 `job.json` 文件中，没有接数据库。
+```bash
+uv run pytest
+```
