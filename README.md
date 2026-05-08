@@ -1,4 +1,4 @@
-# Gym Backend
+# Gym Algo
 
 基于 FastAPI 的智能健身房人体围度测量后端。
 
