@@ -14,6 +14,19 @@ from .config import Config
 from src.app.utils.constants import COCO_KEYPOINT_NAMES
 
 
+class LowConfidenceError(RuntimeError):
+    """Raised when a joint's detection confidence is below the required threshold."""
+
+    def __init__(self, joint_name: str, confidence: float, min_confidence: float):
+        self.joint_name = joint_name
+        self.confidence = confidence
+        self.min_confidence = min_confidence
+        super().__init__(
+            f"Joint confidence too low for {joint_name}: "
+            f"{confidence:.4f} < {min_confidence:.4f}"
+        )
+
+
 class MeasurementBase(ABC):
     """测量算法基类：集中配置、模型与通用工具方法。"""
 
@@ -588,7 +601,7 @@ class MeasurementBase(ABC):
             raise RuntimeError(f"Joint not found: {joint_name}")
         confidence = float(joint.get("confidence", 0.0))
         if confidence < min_confidence:
-            raise RuntimeError(f"Joint confidence too low for {joint_name}: {confidence:.4f}")
+            raise LowConfidenceError(joint_name, confidence, min_confidence)
         return joint
 
     @staticmethod

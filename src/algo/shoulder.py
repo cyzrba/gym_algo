@@ -1,9 +1,13 @@
 from __future__ import annotations
 
+import logging
+
 import numpy as np
 
-from src.algo.base import MeasurementBase
+from src.algo.base import LowConfidenceError, MeasurementBase
 from src.app.schemas.measurements import ShoulderMeasurement as ShoulderSchema
+
+logger = logging.getLogger(__name__)
 
 
 class ShoulderMeasurement(MeasurementBase):
@@ -30,12 +34,34 @@ class ShoulderMeasurement(MeasurementBase):
                 cloud_shape=view_data["cloud_shape"],
                 joint_map=view_data["joint_map"],
             )
+            if width is None:
+                return ShoulderSchema(shoulder_width=None)
             widths.append(width)
 
         mean_width = round(float(np.mean(widths)), 6) if widths else None
         return ShoulderSchema(shoulder_width=mean_width)
 
     def _measure_shoulder_width(
+        self,
+        *,
+        points_xyz: np.ndarray,
+        rgb_shape: tuple[int, int],
+        cloud_shape: tuple[int, int],
+        joint_map: dict[str, dict[str, object]],
+    ) -> float | None:
+        """计算左右肩3D距离（米）。置信度不足时返回 None。"""
+        try:
+            return self._measure_shoulder_width_inner(
+                points_xyz=points_xyz,
+                rgb_shape=rgb_shape,
+                cloud_shape=cloud_shape,
+                joint_map=joint_map,
+            )
+        except LowConfidenceError as exc:
+            logger.warning("Shoulder skipped: %s", exc)
+            return None
+
+    def _measure_shoulder_width_inner(
         self,
         *,
         points_xyz: np.ndarray,

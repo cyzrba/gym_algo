@@ -1,11 +1,15 @@
 from __future__ import annotations
 
+import logging
+
 import cv2
 import numpy as np
 from scipy.spatial import cKDTree
 
-from src.algo.base import MeasurementBase
+from src.algo.base import LowConfidenceError, MeasurementBase
 from src.app.schemas.measurements import WaistMeasurement as WaistSchema
+
+logger = logging.getLogger(__name__)
 
 
 class WaistMeasurement(MeasurementBase):
@@ -24,20 +28,47 @@ class WaistMeasurement(MeasurementBase):
 
     def aggregate(self, view_data_list: list[dict]) -> WaistSchema:
         """接收已加载的多视角数据，返回腰部测量结果。"""
-        total_arc: float = 0.0
+        total_arc: float | None = 0.0
 
         for view_data in view_data_list:
+            if total_arc is None:
+                break
             arc_length = self._measure_waist(
                 points_xyz=view_data["points_xyz"],
                 rgb_shape=view_data["rgb_shape"],
                 cloud_shape=view_data["cloud_shape"],
                 joint_map=view_data["joint_map"],
             )
-            total_arc += arc_length
+            if arc_length is None:
+                total_arc = None
+            else:
+                total_arc += arc_length
 
-        return WaistSchema(waist_arc=round(total_arc, 6))
+        return WaistSchema(
+            waist_arc=round(total_arc, 6) if total_arc is not None else None,
+        )
 
     def _measure_waist(
+        self,
+        *,
+        points_xyz: np.ndarray,
+        rgb_shape: tuple[int, int],
+        cloud_shape: tuple[int, int],
+        joint_map: dict[str, dict[str, object]],
+    ) -> float | None:
+        """测量腰部的可见弧长（米）。置信度不足时返回 None。"""
+        try:
+            return self._measure_waist_inner(
+                points_xyz=points_xyz,
+                rgb_shape=rgb_shape,
+                cloud_shape=cloud_shape,
+                joint_map=joint_map,
+            )
+        except LowConfidenceError as exc:
+            logger.warning("Waist skipped: %s", exc)
+            return None
+
+    def _measure_waist_inner(
         self,
         *,
         points_xyz: np.ndarray,

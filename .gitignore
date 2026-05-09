@@ -11,6 +11,7 @@ build/
 dist/
 wheels/
 *.egg-info
+.kilo
 
 # 虚拟环境
 .venv
@@ -33,3 +34,6 @@ result/
 # 模型权重
 yolo26n-pose.pt
 yolo26n-seg.pt
+
+# 数据库
+database/

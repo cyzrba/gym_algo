@@ -1,9 +1,13 @@
 from __future__ import annotations
 
+import logging
+
 import numpy as np
 
-from src.algo.base import MeasurementBase
+from src.algo.base import LowConfidenceError, MeasurementBase
 from src.app.schemas.measurements import LegMeasurement as LegSchema
+
+logger = logging.getLogger(__name__)
 
 
 class LegMeasurement(MeasurementBase):
@@ -25,10 +29,12 @@ class LegMeasurement(MeasurementBase):
         requested_sides = (
             ["left", "right"] if self.config.leg_side == "both" else [self.config.leg_side]
         )
-        totals: dict[str, float] = {side: 0.0 for side in requested_sides}
+        totals: dict[str, float | None] = {side: 0.0 for side in requested_sides}
 
         for view_data in view_data_list:
             for side in requested_sides:
+                if totals[side] is None:
+                    continue
                 arc_length = self._measure_leg_side(
                     leg_side=side,
                     points_xyz=view_data["points_xyz"],
@@ -36,14 +42,39 @@ class LegMeasurement(MeasurementBase):
                     cloud_shape=view_data["cloud_shape"],
                     joint_map=view_data["joint_map"],
                 )
-                totals[side] += arc_length
+                if arc_length is None:
+                    totals[side] = None
+                else:
+                    totals[side] += arc_length
 
         return LegSchema(
-            left_arc=round(totals["left"], 6) if "left" in totals else None,
-            right_arc=round(totals["right"], 6) if "right" in totals else None,
+            left_arc=round(totals["left"], 6) if totals.get("left") is not None else None,
+            right_arc=round(totals["right"], 6) if totals.get("right") is not None else None,
         )
 
     def _measure_leg_side(
+        self,
+        *,
+        leg_side: str,
+        points_xyz: np.ndarray,
+        rgb_shape: tuple[int, int],
+        cloud_shape: tuple[int, int],
+        joint_map: dict[str, dict[str, object]],
+    ) -> float | None:
+        """测量单侧大腿的可见弧长（米）。置信度不足时返回 None。"""
+        try:
+            return self._measure_leg_side_inner(
+                leg_side=leg_side,
+                points_xyz=points_xyz,
+                rgb_shape=rgb_shape,
+                cloud_shape=cloud_shape,
+                joint_map=joint_map,
+            )
+        except LowConfidenceError as exc:
+            logger.warning("Leg %s skipped: %s", leg_side, exc)
+            return None
+
+    def _measure_leg_side_inner(
         self,
         *,
         leg_side: str,

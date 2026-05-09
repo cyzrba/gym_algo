@@ -1,0 +1,11 @@
+services:
+  algo_server:
+    build: .
+    image: gym_algo
+    container_name: algo_server
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./database:/app/data
+    restart: unless-stopped
+
