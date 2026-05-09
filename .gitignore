@@ -11,7 +11,7 @@ build/
 dist/
 wheels/
 *.egg-info
-.kilo
+
 
 # 虚拟环境
 .venv
